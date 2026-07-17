@@ -16,8 +16,8 @@ int character_in_line = 0;
 %}
 
 DIGIT [0-9]
-SYMBOL [a-zA-Z][a-zA-Z0-9]*
-HEX 0[xX][0-9a-fA-F]+
+SYMBOL [a-zA-Z][a-zA-Z0-9_]*
+HEX 0[xX][0123456789abcdefABCDEF]+
 
 %%
 
@@ -77,7 +77,7 @@ HEX 0[xX][0-9a-fA-F]+
 "$"          { return DOLLAR; }
 "#".*        {}
 
-{SYMBOL}+   { yylval.str = dupstr(yytext); return SYMBOL;     }
+{SYMBOL}    { yylval.str = dupstr(yytext); return SYMBOL;     }
 {HEX}       { hex_to_num(yytext, &yylval.val); return NUMBER; }
 {DIGIT}+    { str_to_num(yytext, &yylval.val); return NUMBER; }
 
@@ -85,6 +85,7 @@ HEX 0[xX][0-9a-fA-F]+
     line++; 
     character_in_line=0;
     cout << "\n";
+    return NEWLINE;
 }
 
 . { character_in_line++; }

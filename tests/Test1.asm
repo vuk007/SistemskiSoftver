@@ -1,4 +1,3 @@
-# file: handler.s 
 .equ term_out, 0xFFFFFF00 
 .equ term_in, 0xFFFFFF04 
 .equ ascii_code, 84 # ascii(’T’) 
