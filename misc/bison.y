@@ -56,6 +56,14 @@ line:
     statement NEWLINE
     |
     label NEWLINE
+    |
+    /*prazan red*/
+    |
+    label statement 
+    |
+    statement 
+    |
+    label
     ;
 
 label: 
