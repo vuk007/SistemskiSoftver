@@ -2,3 +2,4 @@
 /src/lex.yy.cpp
 /src/parser.cpp
 /inc/parser.hpp
+/**/*.o

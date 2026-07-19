@@ -1,8 +1,12 @@
 .equ term_out, 0xFFFFFF00 
 .equ term_in, 0xFFFFFF04 
 .equ ascii_code, 84 # ascii(’T’) 
-.extern my_counter 
+.extern my_counter
 .global handler 
+.section .txt
+
+.skip 10
+a:
 .section my_code_handler 
 handler: 
 push %r1 

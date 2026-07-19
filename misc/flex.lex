@@ -77,6 +77,7 @@ HEX 0[xX][0123456789abcdefABCDEF]+
 "$"          { return DOLLAR; }
 "#".*        {}
 
+\"[^\"\n]*\" { yylval.str = dupstr(yytext); return STRING; }
 {SYMBOL}    { yylval.str = dupstr(yytext); return SYMBOL;     }
 {HEX}       { hex_to_num(yytext, &yylval.val); return NUMBER; }
 {DIGIT}+    { str_to_num(yytext, &yylval.val); return NUMBER; }
