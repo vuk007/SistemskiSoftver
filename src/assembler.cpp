@@ -1,5 +1,5 @@
-
 #include "assembler.hpp"
+#include <iomanip>
 vector<string> newsymbols;
 bool externsymbols;
 int Assembler::open_create_file(string Name) {
@@ -11,7 +11,39 @@ int Assembler::open_create_file(string Name) {
     return 0;
 }
 
-
+void Assembler::output_file(string filename){
+    ofstream OUT(filename);
+    if(!OUT.is_open()){
+        cerr << "Ne mogu da napravim izlazni fajl: "
+             << filename << endl;
+        return;
+    }
+    for(auto &sec : sectionTable){
+        OUT << "Section: " << sec.name << endl;
+        int offset = 0;
+        for(auto &code : sec.data)
+        {
+            if(offset % 16 == 0)
+            {
+                OUT << endl;
+                OUT << hex
+                    << setw(4)
+                    << setfill('0')
+                    << offset
+                    << ": ";
+            }
+            OUT << hex
+                << setw(2)
+                << setfill('0')
+                << (int)code
+                << " ";
+            offset++;
+        }
+        OUT << endl << endl;
+    }
+    OUT << dec;
+    OUT.close();
+}
 void Assembler::close_file() {
     if(!current_file)return;
     current_file.close();
@@ -20,7 +52,7 @@ void Assembler::close_file() {
 
 /// INSTRUKCIJE SA SIMBOLIMA (TABELOM SIMBOLA)///
 
-Assembler::Symbol* Assembler::find_symbol(string name){
+Assembler::Symbol* Assembler::symbolTable_find_symbol(string name){
 
     for(Symbol &s : symbolTable){
         if(s.name == name)
@@ -30,9 +62,9 @@ Assembler::Symbol* Assembler::find_symbol(string name){
 }
 
 
-int Assembler::add_symbol(string name) {
+int Assembler::symbolTable_add_symbol(string name) {
 
-    if(find_symbol(name) != nullptr)
+    if(symbolTable_find_symbol(name) != nullptr)
         return 1; // vec postoji
 
     Symbol sym;
@@ -50,39 +82,39 @@ int Assembler::add_symbol(string name) {
 }
 
 
-void Assembler::set_defined_symbol(string name){
-    Symbol* s=find_symbol(name);
+void Assembler::symbolTable_set_defined(string name){
+    Symbol* s=symbolTable_find_symbol(name);
     if(s)
         s->defined=true;
 }
 
-void Assembler::set_externsymbol(string name) {
+void Assembler::symbolTable_set_extern(string name) {
     Symbol* s;
-    if((s = find_symbol(name))) {
+    if((s = symbolTable_find_symbol(name))) {
         s->isextern = true;
     }
 }
 
-void Assembler::set_globalsymbol(string name){
-    Symbol* s=find_symbol(name);
+void Assembler::symbolTable_set_global(string name){
+    Symbol* s=symbolTable_find_symbol(name);
     if(s)
         s->global=true;
 }
 
-void Assembler::set_symbolsize(string name,uint32_t size){
-    Symbol* s=find_symbol(name);
+void Assembler::symbolTable_set_size(string name,uint32_t size){
+    Symbol* s=symbolTable_find_symbol(name);
     if(s)
         s->size=size;
 }
 
-void Assembler::set_sectionsymbol(string name,string section){
-    Symbol* s=find_symbol(name);
+void Assembler::symbolTable_set_section(string name,string section){
+    Symbol* s=symbolTable_find_symbol(name);
     if(s)
         s->section=section;
 }
 
-void Assembler::set_basesymbol(string name ,int32_t val){
-    Symbol* s = find_symbol(name);
+void Assembler::symbolTable_set_base(string name ,int32_t val){
+    Symbol* s = symbolTable_find_symbol(name);
     if(s){
         s->base = val;
     }
@@ -90,13 +122,12 @@ void Assembler::set_basesymbol(string name ,int32_t val){
 
 void Assembler::resolvesymbols(){
     for (auto s : newsymbols){
-        
+
         if(externsymbols == true){
-            set_externsymbol(s);
+            symbolTable_set_extern(s);
         }
-        else set_globalsymbol(s);
+        else symbolTable_set_global(s);
     }
-    cout<<externsymbols << "\n";
     newsymbols.clear();
 }
 
@@ -104,8 +135,8 @@ void Assembler::resolvesymbols(){
 
 /// operacije sa section tabelom ///
 
-int Assembler::add_section(string name){
-    if(find_section(name))
+int Assembler::sectionTable_add_section(string name){
+    if(sectionTable_find_section(name))
         return 1;
 
     Section sec;
@@ -118,7 +149,7 @@ int Assembler::add_section(string name){
     return 0;
 }
 
-Assembler::Section* Assembler::find_section(string name){
+Assembler::Section* Assembler::sectionTable_find_section(string name){
     for(Section &s:sectionTable){
         if(s.name==name)
             return &s;
@@ -126,49 +157,49 @@ Assembler::Section* Assembler::find_section(string name){
     return nullptr;
 }
 
-void Assembler::set_section_size(string name, uint32_t size){
-    Section* section = find_section(name);
+void Assembler::sectionTable_set_size(string name, uint32_t size){
+    Section* section = sectionTable_find_section(name);
     if(section)
         section->size = size;
 }
 
-void Assembler::increase_section_size(string name, uint32_t value){
-    Section* section = find_section(name);
+void Assembler::sectionTable_increase_size(string name, uint32_t value){
+    Section* section = sectionTable_find_section(name);
     if(section)
         section->size += value;
 }
 
-void Assembler::set_section_offset(string name,uint32_t offset)
+void Assembler::sectionTable_set_offset(string name,uint32_t offset)
 {
-    Section* section=find_section(name);
+    Section* section=sectionTable_find_section(name);
     if(section)
         section->fileOffset=offset;
 }
 
-uint32_t Assembler::get_section_size(string name){
-    Section* section=find_section(name);
+uint32_t Assembler::sectionTable_get_size(string name){
+    Section* section=sectionTable_find_section(name);
     if(section)
         return section->size;
     return 0;
 }
 
-uint64_t Assembler::get_section_offset(string name){
-    Section* section=find_section(name);
+uint64_t Assembler::sectionTable_get_offset(string name){
+    Section* section=sectionTable_find_section(name);
     if(section)
         return section->fileOffset;
     return 0;
 }
 
 
-// pisanje bajta instrukcije 
+// pisanje bajta instrukcije
 void Assembler::write_byte(uint8_t b) {
-    Section* sec = find_section(currentSection);
-    if (!sec) return; 
+    Section* sec = sectionTable_find_section(currentSection);
+    if (!sec) return;
     sec->data.push_back(b);
     locationCounter++;
 }
-// pisanje .word direktive 
-void Assembler::write_word(uint32_t val) { 
+// pisanje .word direktive
+void Assembler::write_word(uint32_t val) {
     write_byte(val & 0xFF);
     write_byte((val >> 8) & 0xFF);
     write_byte((val >> 16) & 0xFF);
@@ -176,10 +207,10 @@ void Assembler::write_word(uint32_t val) {
 }
 
 
-void Assembler::write_instruction(uint8_t oc, 
+void Assembler::write_instruction(uint8_t oc,
                                  uint8_t mod,
-                                 uint8_t regA, 
-                                 uint8_t regB, 
+                                 uint8_t regA,
+                                 uint8_t regB,
                                  uint8_t regC,
                                  int16_t disp) {
     write_byte((oc << 4) | (mod & 0xF));
@@ -190,40 +221,100 @@ void Assembler::write_instruction(uint8_t oc,
 
 /// Tabela obracanja unapred ///
 
-int Assembler::add_forward_reference(string symbolName ,uint32_t address,string section,uint32_t size,forwardRefrence::Type type){
-    forwardRefrence ref;
-    ref.symbolName = symbolName;
-    ref.address=address;
-    ref.section=section;
-    ref.size=size;
-    ref.type=type;
+int Assembler::forwardRefTable_add_reference(string symbolName ,uint32_t address,string section,uint32_t size,forwardRefrence::Type type){
+    forwardRefTable[symbolName].push_back({address, section, size, type});
+    return 0;
+}
 
-    forwardRefrenceTable.push_back(ref);
-    return 0; 
+
+
+void Assembler::backpatching(const string& name){
+    auto it = forwardRefTable.find(name);
+    if (it == forwardRefTable.end()) return;
+
+    Symbol* sym = symbolTable_find_symbol(name);
+    if (!sym) return;   // simbol jos ne postoji, ne bi trebalo da se pozove backpatching bez toga
+
+    for (auto& ref : it->second) {
+        Section* sec = sectionTable_find_section(ref.section);
+        if (!sec) continue;
+
+        if (ref.type == forwardRefrence::ABSOLUTE) {
+    
+            uint32_t value = (uint32_t)sym->base;
+            sec->data[ref.address + 0] = value & 0xFF;
+            sec->data[ref.address + 1] = (value >> 8) & 0xFF;
+            sec->data[ref.address + 2] = (value >> 16) & 0xFF;
+            sec->data[ref.address + 3] = (value >> 24) & 0xFF;
+        } else {
+
+            int32_t value = sym->base - (int32_t)(ref.address + ref.size);
+            if (value < -2048 || value > 2047) {
+                cerr << "Greska: PC-relativni pomeraj do simbola '" << name
+                     << "' ne staje u 12 bita (" << value << ")\n";
+            }
+            sec->data[ref.address + 2] = (sec->data[ref.address + 2] & 0xF0) | ((value >> 8) & 0xF);
+            sec->data[ref.address + 3] = value & 0xFF;
+        }
+    }
+    forwardRefTable.erase(it);
+
+}
+
+
+/*literal pool */
+
+string Assembler::literalPool_findOrAdd_PoolSlot(bool isSymbol, int32_t literalValue, const string& symbolName) {
+    for (auto &e : literalPool) {
+        if (e.isSymbol == isSymbol) {
+            if (isSymbol && e.symbolName == symbolName) return e.poolKey;
+            if (!isSymbol && e.literalValue == literalValue) return e.poolKey;
+        }
+    }
+    string key = "_pool_" + to_string(literalPool.size());
+    literalPool.push_back({key, isSymbol, literalValue, symbolName});
+    return key;
+}
+
+void Assembler::literalPool_flush() {
+    if (literalPool.empty()) return;
+
+    for (auto &e : literalPool) {
+        
+        symbolTable_add_symbol(e.poolKey);
+        symbolTable_set_defined(e.poolKey);
+        symbolTable_set_section(e.poolKey, currentSection);
+        symbolTable_set_base(e.poolKey, (int32_t)locationCounter);
+
+        if (e.isSymbol) {
+            
+            forwardRefTable_add_reference(e.symbolName, locationCounter, currentSection, 4,
+                                           forwardRefrence::ABSOLUTE);
+            write_word(0);
+        } else {
+            /* literal - vrednost vec imamo upisi odmah */
+            write_word((uint32_t)e.literalValue);
+        }
+        backpatching(e.poolKey);
+    }
+    literalPool.clear();
 }
 
 
 
 
-
-
-void Assembler::print_symbol_table(){
-
+void Assembler::symbolTable_print(){
     cout<<"================== SYMBOL TABLE ====================\n";
     for(auto &s:symbolTable){
-
-        cout
-        <<s.name<<"\t\t "
-        <<s.section<<"\t\t "
-        <<"adr/val: "<<s.base<<"\t\t "
-        <<"defined:"<<s.defined
-        <<" \t\t global:"<<s.global
-        <<" \t\t extern:"<<s.isextern
-        <<endl;
+        if (s.name.rfind("__pool_", 0) == 0) continue;   // preskoci interne pool zapise
+        cout << s.name << "\t\t " << s.section << "\t\t "
+             << "adr/val: " << s.base << "\t\t "
+             << "defined:" << s.defined << " \t\t global:" << s.global
+             << " \t\t extern:" << s.isextern << endl;
     }
 }
 
-void Assembler::print_section_table(){
+void Assembler::sectionTable_print(){
 
     cout<<"================== SECTION TABLE ==================\n";
     for(auto &s:sectionTable){
@@ -239,19 +330,47 @@ void Assembler::print_section_table(){
 
 }
 
-void Assembler::print_forward_reference_table(){
-
-    cout<<"================== FORWARD REFERENCES ==================\n";
-    for(auto &r:forwardRefrenceTable){
-
-        cout
-        <<"addr:"
-        <<r.address
-        <<" section:"
-        <<r.section
-        <<" size:"
-        <<r.size
-        <<endl;
+void Assembler::forwardRefTable_print(){
+    cout << "================== FORWARD REFERENCES ==================\n";
+    for (auto &entry : forwardRefTable) {
+        const string& symbolName = entry.first;
+        for (auto &r : entry.second) {
+            cout
+            << "symbol:" << symbolName
+            << " addr:" << r.address
+            << " section:" << r.section
+            << " size:" << r.size
+            << " type:" << (r.type == forwardRefrence::PC_RELATIVE ? "PC_RELATIVE" : "ABSOLUTE")
+            << endl;
+        }
     }
 }
 
+
+
+void Assembler::print_byte_code()
+{
+    cout<<"================== CODE ==================\n";
+    for (auto &sec : sectionTable)
+    {
+        cout << "Section: " << sec.name << endl;
+        int offset = 0;
+        for (auto &code : sec.data)
+        {
+            if (offset % 16 == 0)
+            {
+                cout << endl;
+                cout << hex << setw(4) << setfill('0') << offset << ": ";
+            }
+
+            cout << hex
+                 << setw(2)
+                 << setfill('0')
+                 << (int)code << " ";
+
+            offset++;
+        }
+        cout << endl << endl;
+    }
+    cout << dec;
+}
