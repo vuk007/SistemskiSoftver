@@ -231,9 +231,9 @@ int Assembler::forwardRefTable_add_reference(string symbolName ,uint32_t address
 void Assembler::backpatching(const string& name){
     auto it = forwardRefTable.find(name);
     if (it == forwardRefTable.end()) return;
-
+    cout<<name<<"\n";
     Symbol* sym = symbolTable_find_symbol(name);
-    if (!sym) return;   // simbol jos ne postoji, ne bi trebalo da se pozove backpatching bez toga
+    if (!sym || !sym->defined) return;   // simbol jos ne postoji, ne bi trebalo da se pozove backpatching bez toga
 
     for (auto& ref : it->second) {
         Section* sec = sectionTable_find_section(ref.section);
@@ -265,37 +265,44 @@ void Assembler::backpatching(const string& name){
 /*literal pool */
 
 string Assembler::literalPool_findOrAdd_PoolSlot(bool isSymbol, int32_t literalValue, const string& symbolName) {
-    for (auto &e : literalPool) {
+    auto &pool = literalPool[currentSection];
+    for (auto &e : pool) {
         if (e.isSymbol == isSymbol) {
             if (isSymbol && e.symbolName == symbolName) return e.poolKey;
             if (!isSymbol && e.literalValue == literalValue) return e.poolKey;
         }
     }
-    string key = "_pool_" + to_string(literalPool.size());
-    literalPool.push_back({key, isSymbol, literalValue, symbolName});
+    
+    string key = "_pool_" + to_string(poolCounter++);
+    pool.push_back({key, isSymbol, literalValue, symbolName});
     return key;
 }
 
 void Assembler::literalPool_flush() {
     if (literalPool.empty()) return;
 
-    for (auto &e : literalPool) {
-        
-        symbolTable_add_symbol(e.poolKey);
-        symbolTable_set_defined(e.poolKey);
-        symbolTable_set_section(e.poolKey, currentSection);
-        symbolTable_set_base(e.poolKey, (int32_t)locationCounter);
+       for (auto &kv : literalPool) {
+        const string &section = kv.first;
+        for (auto &e : kv.second) {
+            currentSection = section;
+            locationCounter = sectionTable_get_size(section);
 
-        if (e.isSymbol) {
-            
-            forwardRefTable_add_reference(e.symbolName, locationCounter, currentSection, 4,
-                                           forwardRefrence::ABSOLUTE);
-            write_word(0);
-        } else {
-            /* literal - vrednost vec imamo upisi odmah */
-            write_word((uint32_t)e.literalValue);
+            symbolTable_add_symbol(e.poolKey);
+            symbolTable_set_defined(e.poolKey);
+            symbolTable_set_section(e.poolKey, section);
+            symbolTable_set_base(e.poolKey, (int32_t)locationCounter);
+
+            if (e.isSymbol) {
+                forwardRefTable_add_reference(e.symbolName, locationCounter, section, 4,
+                                               forwardRefrence::ABSOLUTE);
+                write_word(0);
+                backpatching(e.symbolName);
+            } else {
+                write_word((uint32_t)e.literalValue);
+            }
+            backpatching(e.poolKey);
+            sectionTable_set_size(section, locationCounter);
         }
-        backpatching(e.poolKey);
     }
     literalPool.clear();
 }
@@ -306,7 +313,7 @@ void Assembler::literalPool_flush() {
 void Assembler::symbolTable_print(){
     cout<<"================== SYMBOL TABLE ====================\n";
     for(auto &s:symbolTable){
-        if (s.name.rfind("__pool_", 0) == 0) continue;   // preskoci interne pool zapise
+        if (s.name.rfind("_pool_", 0) == 0) continue;   // preskoci interne pool zapise
         cout << s.name << "\t\t " << s.section << "\t\t "
              << "adr/val: " << s.base << "\t\t "
              << "defined:" << s.defined << " \t\t global:" << s.global

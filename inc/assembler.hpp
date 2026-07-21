@@ -15,6 +15,7 @@ struct OperandInfo {
     char* symbol;  /* nenulti ako disp jos nije poznat (forward ref) */
     bool isImmediateReg; /* true za %gpr  */
     int plainReg;
+    bool isIndirect = false;
   };
 extern vector<string> newsymbols;
 extern bool externsymbols;
@@ -31,7 +32,8 @@ private:
     ofstream current_file;
     vector<Symbol> symbolTable;
     vector<Section> sectionTable;
-    vector<PoolEntry> literalPool; // bazen literala
+    unordered_map<string, vector<PoolEntry>> literalPool;   // kljuc = ime sekcije
+    int poolCounter = 0;                              
     unordered_map<string, vector<forwardRefrence>> forwardRefTable;
     Symbol* symbolTable_find_symbol(string name);
     Section* sectionTable_find_section(string name);
@@ -126,5 +128,26 @@ public:
       if (s== "%handler") return 1;
       if (s == "%cause") return 2;
       return -1;
+    }
+
+    int check_undefind_sym(){
+        for (auto &s : symbolTable){
+            if(s.defined != 1 && s.isextern != true){
+                cout<< "simbol "<< s.name <<" nije definisan niti uvezen\n";
+                return -1; 
+            }
+        }
+        for (auto &r : forwardRefTable){
+            auto sym  =symbolTable_find_symbol(r.first);
+            if(sym == nullptr){
+                cout<< "simbol "<< r.first <<" nije definisan niti uvezen\n";
+                return -1; 
+            }
+            if( sym->defined == false && sym->isextern == false){
+                cout<< "simbol "<< sym->name <<" nije definisan niti uvezen\n";
+                return -1; 
+            }
+        }
+        return 0;
     }
 };

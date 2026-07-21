@@ -113,9 +113,9 @@ directive:
                                 }
     | 
     SECTION name            {  
-                              if (!ass.currentSection.empty())
+                              if (!ass.currentSection.empty()){
                                 ass.sectionTable_set_size(ass.currentSection, ass.locationCounter);
-                                ass.literalPool_flush();
+                              }
                               ass.sectionTable_add_section($2);
                               ass.currentSection = $2;
                               ass.locationCounter = ass.sectionTable_get_size($2);
@@ -133,8 +133,11 @@ directive:
     END                        { 
                                 if(!ass.currentSection.empty()){
                                   ass.sectionTable_increase_size(ass.currentSection, ass.locationCounter);
-                                  ass.literalPool_flush();
                                 }
+                                ass.literalPool_flush();
+                                ass.symbolTable_print();
+                                ass.sectionTable_print();
+                                ass.forwardRefTable_print();
                               }
     ;
 
@@ -207,14 +210,17 @@ instruction:
         ass.write_instruction(c.oc, c.mod, 0, 0, 0, 0); 
     }
     | 
-    IRET                                   
+    IRET { 
+        ass.write_instruction(0b1001, 0b0011, 15, 14, 0, 4);
+        ass.write_instruction(0b1001, 0b0111, 0, 14, 0, 4);
+    }                                   
     | 
-    RET                                    
+    RET     {ass.write_instruction(0b1001, 0b0011, 15, 14, 0, 4);}                               
     |
     CALL jmp_operand    { 
       
-      InstructionCode c = get_instruction_code(CALL);
-        int mod = c.mod; 
+        InstructionCode c = get_instruction_code(CALL);
+        int mod = $2->isIndirect ? 0b0001 : c.mod; 
         if ($2->symbol) {
             ass.forwardRefTable_add_reference($2->symbol, ass.locationCounter, ass.currentSection, 4,
                                        Assembler::forwardRefrence::PC_RELATIVE);
@@ -227,45 +233,49 @@ instruction:
     JMP jmp_operand           { 
       
        InstructionCode c = get_instruction_code(JMP);
+       int mod = $2->isIndirect ? 0b1000 : c.mod;
         if ($2->symbol) {
             ass.forwardRefTable_add_reference($2->symbol,ass.locationCounter, ass.currentSection, 4,
                                        Assembler::forwardRefrence::PC_RELATIVE);
             free($2->symbol);
         }
-        ass.write_instruction(c.oc, c.mod, 15, $2->regB, $2->regC, $2->disp);
+        ass.write_instruction(c.oc, mod, 15, $2->regB, $2->regC, $2->disp);
         delete $2;
     }
     | 
     BEQ GPR COMMA GPR COMMA jmp_operand {
-      InstructionCode c = get_instruction_code(BEQ);
+        InstructionCode c = get_instruction_code(BEQ);
+        int mod = $6->isIndirect ? 0b1001 : c.mod;
         if ($6->symbol) {
             ass.forwardRefTable_add_reference($6->symbol, ass.locationCounter, ass.currentSection, 4,
                                        Assembler::forwardRefrence::PC_RELATIVE);
             free($6->symbol);
         }
         /* jmp-format, MOD 0001 : if (gpr[B]==gpr[C]) pc<=gpr[A]+D; A=pc */
-        ass.write_instruction(c.oc, c.mod, 15, ass.gpr_index($2), ass.gpr_index($4), $6->disp);
+        ass.write_instruction(c.oc, mod, 15, ass.gpr_index($2), ass.gpr_index($4), $6->disp);
         free($2); free($4); delete $6;
     }
     |
     BNE GPR COMMA GPR COMMA jmp_operand {
-      InstructionCode c = get_instruction_code(BNE);
+        InstructionCode c = get_instruction_code(BNE);
+        int mod = $6->isIndirect ? 0b1010 : c.mod;
         if ($6->symbol) {
             ass.forwardRefTable_add_reference($6->symbol , ass.locationCounter, ass.currentSection, 4,
                                        Assembler::forwardRefrence::PC_RELATIVE);
             free($6->symbol);
         }
-        ass.write_instruction(c.oc,c.mod, 15, ass.gpr_index($2), ass.gpr_index($4), $6->disp);
+        ass.write_instruction(c.oc,mod, 15, ass.gpr_index($2), ass.gpr_index($4), $6->disp);
         free($2); free($4); delete $6;
     }
     |
     BGT GPR COMMA GPR COMMA jmp_operand {
+        int mod = $6->isIndirect ? 0b1011 : 0b0011;
         if ($6->symbol) {
             ass.forwardRefTable_add_reference($6->symbol, ass.locationCounter, ass.currentSection, 4,
                                        Assembler::forwardRefrence::PC_RELATIVE);
             free($6->symbol);
         }
-        ass.write_instruction(0b0011, 0b0011, 15, ass.gpr_index($2), ass.gpr_index($4), $6->disp);
+        ass.write_instruction(0b0011, mod, 15, ass.gpr_index($2), ass.gpr_index($4), $6->disp);
         free($2); free($4); delete $6;
     }
     |
@@ -409,13 +419,19 @@ jmp_operand:
                 OperandInfo* o = new OperandInfo();
                 o->symbol = nullptr; o->regB = 0; o->regC = 0;
                 o->disp = (int32_t)$1;
-                if ($1 < -2048 || $1 > 2047) yyerror("skok van dozvoljenog 12-bitnog opsega");
+                if ($1 >= -2048 && $1 <= 2047) {
+                   o->symbol = nullptr; o->disp = (int32_t)$1; o->isIndirect = false;
+                }
+                else{
+                    string key = ass.literalPool_findOrAdd_PoolSlot(false, (int32_t)$1, "");
+                    o->symbol = strdup(key.c_str()); o->disp = 0; o->isIndirect = true;
+                }
                 $$ = o;
              }
             |
             symbol    { 
                 OperandInfo* o = new OperandInfo();
-                o->symbol = $1; o->regB = 0; o->regC = 0; o->disp = 0;
+                o->symbol = $1; o->regB = 0; o->regC = 0; o->disp = 0; o->isIndirect = false;
                 $$ = o;
             }
             ;
@@ -423,22 +439,32 @@ jmp_operand:
 operand:
     DOLLAR number {
         OperandInfo* o = new OperandInfo();
-        o->symbol = nullptr; o->mod = 0b0001; o->regB = 0; o->regC = 0;
-        o->disp = (int32_t)$2; o->isImmediateReg = false;
+        o->isImmediateReg = false;
+        if ($2 >= -2048 && $2 <= 2047) {
+            o->symbol = nullptr; o->mod = 0b0001; o->regB = 0; o->regC = 0;
+            o->disp = (int32_t)$2;
+        } else {
+            string key = ass.literalPool_findOrAdd_PoolSlot(false, (int32_t)$2, "");
+            o->symbol = strdup(key.c_str()); 
+            o->mod = 0b0010; o->regB = 15; o->regC = 0; o->disp = 0;
+        }
         $$ = o;
     }
     |
     DOLLAR symbol {
         OperandInfo* o = new OperandInfo();
-        o->symbol = $2; o->mod = 0b0001; o->regB = 0; o->regC = 0;
-        o->disp = 0; o->isImmediateReg = false;
+        string key = ass.literalPool_findOrAdd_PoolSlot(true, 0, $2);
+        o->symbol = strdup(key.c_str());
+        o->mod = 0b0010; o->regB = 15; o->regC = 0; o->disp = 0;
+        o->isImmediateReg = false;
+        free($2);
         $$ = o;
     }
     |
     number {
         /* citanje iz memorije na apsolutnoj adresi -> PC-relativno */
         OperandInfo* o = new OperandInfo();
-        o->symbol = nullptr; o->mod = 0b0010; o->regB = 15; o->regC = 0;
+        o->symbol = nullptr; o->mod = 0b0010; o->regB = 0; o->regC = 0;
         o->disp = (int32_t)$1; o->isImmediateReg = false;
         $$ = o;
     }
@@ -522,12 +548,14 @@ extern FILE* yyin;
         return 1;
     }
     if(yyparse() == 0){
+        if(ass.check_undefind_sym() == -1 )return 1;
         cout << "Parsiranje uspesno.\n";
     }
     else{
         cerr << "Greska pri parsiranju.\n";
         return 1;
     }
+    
     ass.output_file(output_file);
     fclose(yyin);
     return 0;
