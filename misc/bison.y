@@ -172,7 +172,7 @@ init:
                 /* vrednost simbola jos mozda nije poznata - registruj forward ref
                 na adresu koju upravo pisemo, pa upisi 0 kao placeholder */
                 ass.forwardRefTable_add_reference($1,ass.locationCounter, ass.currentSection, 4,
-                                            Assembler::forwardRefrence::ABSOLUTE);
+                                            forwardRefrence::ABSOLUTE);
                 ass.write_word(0);
                 free($1);
       }
@@ -223,7 +223,7 @@ instruction:
         int mod = $2->isIndirect ? 0b0001 : c.mod; 
         if ($2->symbol) {
             ass.forwardRefTable_add_reference($2->symbol, ass.locationCounter, ass.currentSection, 4,
-                                       Assembler::forwardRefrence::PC_RELATIVE);
+                                       forwardRefrence::PC_RELATIVE);
             free($2->symbol);
         }
         ass.write_instruction(c.oc, mod, 15, $2->regB, $2->regC, $2->disp);
@@ -236,7 +236,7 @@ instruction:
        int mod = $2->isIndirect ? 0b1000 : c.mod;
         if ($2->symbol) {
             ass.forwardRefTable_add_reference($2->symbol,ass.locationCounter, ass.currentSection, 4,
-                                       Assembler::forwardRefrence::PC_RELATIVE);
+                                       forwardRefrence::PC_RELATIVE);
             free($2->symbol);
         }
         ass.write_instruction(c.oc, mod, 15, $2->regB, $2->regC, $2->disp);
@@ -248,7 +248,7 @@ instruction:
         int mod = $6->isIndirect ? 0b1001 : c.mod;
         if ($6->symbol) {
             ass.forwardRefTable_add_reference($6->symbol, ass.locationCounter, ass.currentSection, 4,
-                                       Assembler::forwardRefrence::PC_RELATIVE);
+                                       forwardRefrence::PC_RELATIVE);
             free($6->symbol);
         }
         /* jmp-format, MOD 0001 : if (gpr[B]==gpr[C]) pc<=gpr[A]+D; A=pc */
@@ -261,7 +261,7 @@ instruction:
         int mod = $6->isIndirect ? 0b1010 : c.mod;
         if ($6->symbol) {
             ass.forwardRefTable_add_reference($6->symbol , ass.locationCounter, ass.currentSection, 4,
-                                       Assembler::forwardRefrence::PC_RELATIVE);
+                                       forwardRefrence::PC_RELATIVE);
             free($6->symbol);
         }
         ass.write_instruction(c.oc,mod, 15, ass.gpr_index($2), ass.gpr_index($4), $6->disp);
@@ -272,7 +272,7 @@ instruction:
         int mod = $6->isIndirect ? 0b1011 : 0b0011;
         if ($6->symbol) {
             ass.forwardRefTable_add_reference($6->symbol, ass.locationCounter, ass.currentSection, 4,
-                                       Assembler::forwardRefrence::PC_RELATIVE);
+                                       forwardRefrence::PC_RELATIVE);
             free($6->symbol);
         }
         ass.write_instruction(0b0011, mod, 15, ass.gpr_index($2), ass.gpr_index($4), $6->disp);
@@ -371,8 +371,8 @@ instruction:
         int dest = ass.gpr_index($4);
         if ($2->symbol) {
             auto relocType = ($2->mod == 0b0001)
-                ? Assembler::forwardRefrence::ABSOLUTE     // $simbol - direktna vrednost, bez PC
-                : Assembler::forwardRefrence::PC_RELATIVE; // goli simbol/[reg+simbol] - PC baza
+                ? forwardRefrence::ABSOLUTE     // $simbol - direktna vrednost, bez PC
+                : forwardRefrence::PC_RELATIVE; // goli simbol/[reg+simbol] - PC baza
             ass.forwardRefTable_add_reference($2->symbol, ass.locationCounter, ass.currentSection, 4, relocType);
             free($2->symbol);
         }
@@ -390,8 +390,8 @@ instruction:
         int src = ass.gpr_index($2);
         if ($4->symbol) {
             auto relocType = ($4->mod == 0b0001)
-            ? Assembler::forwardRefrence::ABSOLUTE
-            : Assembler::forwardRefrence::PC_RELATIVE;
+            ? forwardRefrence::ABSOLUTE
+            : forwardRefrence::PC_RELATIVE;
             ass.forwardRefTable_add_reference($4->symbol, ass.locationCounter, ass.currentSection, 4, relocType);
             free($4->symbol);
         }

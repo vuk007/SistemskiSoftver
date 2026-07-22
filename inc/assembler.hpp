@@ -1,30 +1,15 @@
 #pragma once
-#include <cstdint>
 #include <iostream>
 #include <fstream>
-#include <string>
-#include <vector>
 #include <unordered_map>
+#include "structs.hpp"
 using namespace  std;
 //pomocne stvari
-struct OperandInfo {
-    int mod;
-    int regB;      /* bazni registar; -1 ako se ne koristi */
-    int regC;      /*  r0 kad se ne koristi */
-    int32_t disp;
-    char* symbol;  /* nenulti ako disp jos nije poznat (forward ref) */
-    bool isImmediateReg; /* true za %gpr  */
-    int plainReg;
-    bool isIndirect = false;
-  };
+
 extern vector<string> newsymbols;
 extern bool externsymbols;
 class Assembler {
 public:
-    struct Symbol;
-    struct Section;
-    struct forwardRefrence;
-    struct PoolEntry; 
     string currentSection;
     uint32_t locationCounter = 0;
 private:
@@ -38,44 +23,13 @@ private:
     Symbol* symbolTable_find_symbol(string name);
     Section* sectionTable_find_section(string name);
 public:
-    // polje symbol tabele
-    struct Symbol {
-        string name;
-        string section;
-        int32_t base; //za .equ predstavlja vrednost izraza
-                     // za sve ostalo adresu
-        uint32_t size;
-        bool defined;
-        bool global;
-        bool isextern;
-    };
-    struct Section {
-        string name;
-        uint32_t size;
-        uint32_t base;
-        uint64_t fileOffset;
-        std::vector<uint8_t> data; // lista instrukcija sekcije koja se menja,
-                                    //ona se prepisuje u output fajl nakon svega
-    };
-    struct forwardRefrence {
-        uint32_t address;
-        string section;
-        uint32_t size;
-        enum Type {
-            ABSOLUTE,
-            PC_RELATIVE
-        } type;
-    };
-    struct PoolEntry {
-        string poolKey;
-        bool isSymbol;  //false za literale (direktno upisane vrednosti)
-        int32_t literalValue;
-        string symbolName;
-    };
-
     int open_create_file(string Name);
     void output_file(string filename);
     void close_file();
+    void write_string(ofstream& out,const string& s);
+    void write_symbols(ofstream& out);
+    void write_sections(ofstream& out);
+    void write_relocations(ofstream& out);
     /* symbol table operations */
     int symbolTable_add_symbol(string name);
     void symbolTable_set_defined(string name);

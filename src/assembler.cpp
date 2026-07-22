@@ -12,47 +12,84 @@ int Assembler::open_create_file(string Name) {
 }
 
 void Assembler::output_file(string filename){
-    ofstream OUT(filename);
-    if(!OUT.is_open()){
-        cerr << "Ne mogu da napravim izlazni fajl: "
-             << filename << endl;
+    ofstream out(filename,ios::binary);
+    if(!out){
+        cout<<"Fajl nije uspeo da se otvori \n";
         return;
     }
-    for(auto &sec : sectionTable){
-        OUT << "Section: " << sec.name << endl;
-        int offset = 0;
-        for(auto &code : sec.data)
-        {
-            if(offset % 16 == 0)
-            {
-                OUT << endl;
-                OUT << hex
-                    << setw(4)
-                    << setfill('0')
-                    << offset
-                    << ": ";
-            }
-            OUT << hex
-                << setw(2)
-                << setfill('0')
-                << (int)code
-                << " ";
-            offset++;
-        }
-        OUT << endl << endl;
-    }
-    OUT << dec;
-    OUT.close();
+
+    FileHeader header;
+    header.symCount=symbolTable.size();
+    header.secCount=sectionTable.size();
+    header.relocCount=0;
+    for(auto &r:forwardRefTable)
+        header.relocCount+=r.second.size();
+
+    out.write((char*)&header,sizeof(header));
+    write_symbols(out);
+    write_sections(out);
+    write_relocations(out);
+    out.close();
 }
+
 void Assembler::close_file() {
     if(!current_file)return;
     current_file.close();
 
 }
 
+
+void Assembler::write_string(ofstream& out,const string& s){
+    uint32_t size=s.size();
+    out.write((char*)&size,sizeof(size));
+    out.write(s.c_str(),size);
+}
+
+void Assembler::write_symbols(ofstream& out){
+
+    for(auto &sym:symbolTable){
+
+        write_string(out,sym.name);
+        write_string(out,sym.section);
+
+        out.write((char*)&sym.base,sizeof(sym.base));
+        out.write((char*)&sym.size,sizeof(sym.size));
+
+        out.write((char*)&sym.defined,sizeof(sym.defined));
+        out.write((char*)&sym.global,sizeof(sym.global));
+        out.write((char*)&sym.isextern,sizeof(sym.isextern));
+    }
+}
+
+void Assembler::write_sections(ofstream& out){
+    // zajedno sa sekcijama upisujem i kod, ne moram da trazim offset vec
+    // je kod odmah ispod imena i podataka za tu sekciju 
+    for(auto &sec:sectionTable){
+        write_string(out,sec.name);
+        out.write((char*)&sec.size,sizeof(sec.size));
+        out.write((char*)&sec.base,sizeof(sec.base));
+        uint32_t dataSize=sec.data.size();
+        out.write((char*)&dataSize,sizeof(dataSize));
+        out.write((char*)sec.data.data(),dataSize );
+    }
+}
+
+void Assembler::write_relocations(ofstream& out){
+
+    for(auto &entry:forwardRefTable){
+        for(auto &ref:entry.second){
+            write_string(out,entry.first);
+            write_string(out,ref.section);
+            out.write((char*)&ref.address,sizeof(ref.address));
+            out.write((char*)&ref.size,sizeof(ref.size));
+            uint8_t type=ref.type;
+            out.write((char*)&type,sizeof(type));
+        }
+    }
+}
 /// INSTRUKCIJE SA SIMBOLIMA (TABELOM SIMBOLA)///
 
-Assembler::Symbol* Assembler::symbolTable_find_symbol(string name){
+Symbol* Assembler::symbolTable_find_symbol(string name){
 
     for(Symbol &s : symbolTable){
         if(s.name == name)
@@ -149,7 +186,7 @@ int Assembler::sectionTable_add_section(string name){
     return 0;
 }
 
-Assembler::Section* Assembler::sectionTable_find_section(string name){
+Section* Assembler::sectionTable_find_section(string name){
     for(Section &s:sectionTable){
         if(s.name==name)
             return &s;
