@@ -1,5 +1,6 @@
 TARGET        = src/asembler
 LINKER_TARGET = src/linker
+EMULATOR_TARGET = src/emulator
 
 LEX_FILE   = misc/flex.lex
 LEX_OUTPUT = src/lex.cpp
@@ -15,9 +16,13 @@ OBJECTS = $(SOURCES:.cpp=.o) src/lex.o src/parser.o
 LINKER_SOURCES = src/linker.cpp
 LINKER_OBJECTS = $(LINKER_SOURCES:.cpp=.o)
 
+#fajlovi za emulator
+EMULATOR_SOURCES = src/emulator.cpp src/cpu.cpp src/memory.cpp
+EMULATOR_OBJECTS = $(EMULATOR_SOURCES:.cpp=.o)
+
 CXXFLAGS = -Iinc -std=c++17 -Wall -MMD -MP
 
-all: $(TARGET) $(LINKER_TARGET)
+all: $(TARGET) $(LINKER_TARGET) $(EMULATOR_TARGET)
 
 $(TARGET): $(OBJECTS)
 	g++ $(OBJECTS) -o $(TARGET)
@@ -25,6 +30,8 @@ $(TARGET): $(OBJECTS)
 $(LINKER_TARGET): $(LINKER_OBJECTS)
 	g++ $(LINKER_OBJECTS) -o $(LINKER_TARGET)
 
+$(EMULATOR_TARGET): $(EMULATOR_OBJECTS)
+	g++ $(EMULATOR_OBJECTS) -o $(EMULATOR_TARGET)
 # generisi lex.cpp (zavisi i od parser.hpp zbog #include "parser.hpp")
 $(LEX_OUTPUT): $(LEX_FILE) $(PARSER_HEADER)
 	flex -o $(LEX_OUTPUT) $(LEX_FILE)
@@ -38,8 +45,9 @@ src/%.o: src/%.cpp
 	g++ $(CXXFLAGS) -c $< -o $@
 
 clean:
-	rm -f $(LEX_OUTPUT) $(PARSER_OUTPUT) $(PARSER_HEADER) $(TARGET) $(LINKER_TARGET) src/*.o src/*.d
+	rm -f $(LEX_OUTPUT) $(PARSER_OUTPUT) $(PARSER_HEADER) $(TARGET) $(LINKER_TARGET) \
+				$(EMULATOR_TARGET) src/*.o src/*.d
 
 rebuild: clean all
 
--include $(OBJECTS:.o=.d) $(LINKER_OBJECTS:.o=.d)
+-include $(OBJECTS:.o=.d) $(LINKER_OBJECTS:.o=.d) $(EMULATOR_OBJECTS:.o=.d)

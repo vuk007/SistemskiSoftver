@@ -1,3 +1,6 @@
+/tests/*.s
+/tests/*.sh
+/tests/*.asm
 /src/lex.cpp
 /src/lex.yy.cpp
 /src/parser.cpp
