@@ -154,10 +154,9 @@ bool Linker::create_sym_table(){
 
     for (auto &file : objFiles){
         for (auto &sym : file.symbols){
-          if (!sym.global && !sym.isextern)continue;
 
             Symbol* existing = find_symbol(sym.name);
-
+            
             if (existing == nullptr){
                 outputSymTable.push_back(sym);
                 existing = find_symbol(sym.name);

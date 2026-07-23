@@ -306,9 +306,10 @@ void Assembler::backpatching(const string& name){
             }
             sec->data[ref.address + 2] = (sec->data[ref.address + 2] & 0xF0) | ((value >> 8) & 0xF);
             sec->data[ref.address + 3] = value & 0xFF;
+            forwardRefTable.erase(it);
         }
     }
-    forwardRefTable.erase(it);
+    
 
 }
 
@@ -347,7 +348,6 @@ void Assembler::literalPool_flush() {
                 forwardRefTable_add_reference(e.symbolName, locationCounter, section, 4,
                                                forwardRefrence::ABSOLUTE);
                 write_word(0);
-                backpatching(e.symbolName);
             } else {
                 write_word((uint32_t)e.literalValue);
             }
