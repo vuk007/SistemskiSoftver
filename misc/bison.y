@@ -429,11 +429,15 @@ jmp_operand:
                 $$ = o;
              }
             |
-            symbol    { 
-                OperandInfo* o = new OperandInfo();
-                o->symbol = $1; o->regB = 0; o->regC = 0; o->disp = 0; o->isIndirect = false;
-                $$ = o;
-            }
+            symbol  { 
+                    OperandInfo* o = new OperandInfo();
+                    string key = ass.literalPool_findOrAdd_PoolSlot(true, 0, $1);
+                    o->symbol = strdup(key.c_str());
+                    o->regB = 0; o->regC = 0; o->disp = 0;
+                    o->isIndirect = true;
+                    free($1);
+                    $$ = o;
+                }
             ;
 
 operand:

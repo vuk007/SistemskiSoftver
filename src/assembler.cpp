@@ -19,7 +19,10 @@ void Assembler::output_file(string filename){
     }
 
     FileHeader header;
-    header.symCount=symbolTable.size();
+    
+    header.symCount = 0;
+    for (auto &s : symbolTable)if (s.name.rfind("_pool_", 0) != 0) header.symCount++;
+    
     header.secCount=sectionTable.size();
     header.relocCount=0;
     for(auto &r:forwardRefTable)
@@ -48,6 +51,8 @@ void Assembler::write_string(ofstream& out,const string& s){
 void Assembler::write_symbols(ofstream& out){
 
     for(auto &sym:symbolTable){
+
+        if (sym.name.rfind("_pool_", 0) == 0) continue;
 
         write_string(out,sym.name);
         write_string(out,sym.section);
