@@ -219,7 +219,7 @@ bool Linker::realloc_symbols(){
                 sec.data[patchAddr + 3] = (value >> 24) & 0xFF;
            
               } 
-              else { /* PC_RELATIVE */
+              else if (rel.type == 1) { /* PC_RELATIVE */
                 
                 int32_t value = sym->base - (int32_t)(sec.base + patchAddr + rel.size);
                 
@@ -232,6 +232,19 @@ bool Linker::realloc_symbols(){
                 sec.data[patchAddr + 2] = (sec.data[patchAddr + 2] & 0xF0) | ((value >> 8) & 0xF);
                 sec.data[patchAddr + 3] = value & 0xFF;
             }
+            else{
+
+                /*        DISP_ABS            */
+                int32_t value = sym->base;
+                if (value < -2048 || value > 2047){
+                    cout << "Greska: PC-relativni pomeraj do simbola '" << rel.symbol
+                         << "' ne staje u 12 bita (" << value << ")\n";
+                    ok = false;
+                    continue;
+                }
+                sec.data[patchAddr+2] = (sec.data[patchAddr + 2 ] & 0xF0)| ((value >> 8)& 0x0F);
+                sec.data[patchAddr + 3] = value & 0xFF;
+            } 
         }
         fileId++;
     }
@@ -288,8 +301,14 @@ void Linker::print_relocations(){
                  << "\tsection:" << r.section
                  << "\taddress: 0x" << hex << r.address << dec
                  << "\tsize:" << r.size
-                 << "\ttype:" << (r.type == 0 ? "ABSOLUTE" : "PC_RELATIVE")
-                 << endl;
+                 << "\ttype:";
+                if(r.type == 0)
+                    cout<<"ABSOLUTE";
+                else if(r.type == 1)
+                    cout<<"PC_RELATIVE";
+                else
+                    cout<<"DISP_ABS";
+                cout<<endl;
         }
         fileId++;
     }
@@ -451,16 +470,23 @@ bool Linker::write_relocatable_output(){
         
             Section &sec = outputSections[rel.section];
             if (rel.type == 0 ){
+                
                 /* ABSOLUTE */
                 uint32_t value = (uint32_t)sym->base;
                 sec.data[newAddr + 0] = value & 0xFF;
                 sec.data[newAddr + 1] = (value >> 8) & 0xFF;
                 sec.data[newAddr + 2] = (value >> 16) & 0xFF;
                 sec.data[newAddr + 3] = (value >> 24) & 0xFF;
-            } else { 
+            } else if(rel.type == 1){ 
+               
                 /* PC_RELATIVE */
                 int32_t value = sym->base - (int32_t)(sec.base + newAddr + rel.size);
                 sec.data[newAddr + 2] = (sec.data[newAddr + 2] & 0xF0) | ((value >> 8) & 0xF);
+                sec.data[newAddr + 3] = value & 0xFF;
+            }
+            else {
+                int32_t value = sym->base;
+                sec.data[newAddr + 2] = (sec.data[newAddr + 2 ] & 0xF0)| ((value >> 8)& 0x0F);
                 sec.data[newAddr + 3] = value & 0xFF;
             }
         }

@@ -288,7 +288,17 @@ void Assembler::backpatching(const string& name){
             sec->data[ref.address + 1] = (value >> 8) & 0xFF;
             sec->data[ref.address + 2] = (value >> 16) & 0xFF;
             sec->data[ref.address + 3] = (value >> 24) & 0xFF;
-        } else {
+        } 
+        else if (ref.type == forwardRefrence::DISP_ABS) {
+            int32_t value = sym->base;   // BEZ oduzimanja adrese!
+            if (value < -2048 || value > 2047) {
+                cerr << "Greska: vrednost simbola '" << name
+                    << "' ne staje u 12 bita (" << value << ")\n";
+            }
+            sec->data[ref.address + 2] = (sec->data[ref.address + 2] & 0xF0) | ((value >> 8) & 0xF);
+            sec->data[ref.address + 3] = value & 0xFF;
+        }
+        else {
 
             int32_t value = sym->base - (int32_t)(ref.address + ref.size);
             if (value < -2048 || value > 2047) {

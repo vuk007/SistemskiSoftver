@@ -370,9 +370,11 @@ instruction:
     LD operand COMMA GPR {
         int dest = ass.gpr_index($4);
         if ($2->symbol) {
-            auto relocType = ($2->mod == 0b0001)
-                ? forwardRefrence::ABSOLUTE     // $simbol - direktna vrednost, bez PC
-                : forwardRefrence::PC_RELATIVE; // goli simbol/[reg+simbol] - PC baza
+            auto relocType = ($2->relocKind == OperandInfo::DISP_ABS)
+            ? forwardRefrence::DISP_ABS // [reg + simbol/literal]
+            : ($2->mod == 0b0001 
+                ? forwardRefrence::ABSOLUTE  //$simbol  ili $literal
+                : forwardRefrence::PC_RELATIVE); // simbol ili literal
             ass.forwardRefTable_add_reference($2->symbol, ass.locationCounter, ass.currentSection, 4, relocType);
             free($2->symbol);
         }
@@ -389,9 +391,11 @@ instruction:
     ST GPR COMMA operand {
         int src = ass.gpr_index($2);
         if ($4->symbol) {
-            auto relocType = ($4->mod == 0b0001)
-            ? forwardRefrence::ABSOLUTE
-            : forwardRefrence::PC_RELATIVE;
+            auto relocType = ($4->relocKind == OperandInfo::DISP_ABS)
+                ? forwardRefrence::DISP_ABS
+                :($4->mod == 0b0001
+                    ? forwardRefrence::ABSOLUTE
+                    : forwardRefrence::PC_RELATIVE);
             ass.forwardRefTable_add_reference($4->symbol, ass.locationCounter, ass.currentSection, 4, relocType);
             free($4->symbol);
         }
@@ -476,7 +480,7 @@ operand:
     symbol {
         OperandInfo* o = new OperandInfo();
         o->symbol = $1; o->mod = 0b0010; o->regB = 15; o->regC = 0;
-        o->disp = 0; o->isImmediateReg = false;
+        o->disp = 0; o->isImmediateReg = false; 
         $$ = o;
     }
     |
@@ -498,7 +502,7 @@ operand:
     LBRACKET GPR PLUS number RBRACKET {
         OperandInfo* o = new OperandInfo();
         o->symbol = nullptr; o->mod = 0b0010; o->regB = ass.gpr_index($2); o->regC = 0;
-        o->disp = (int32_t)$4; o->isImmediateReg = false;
+        o->disp = (int32_t)$4; o->isImmediateReg = false;o->relocKind = OperandInfo::DISP_ABS;
         if ($4 < -2048 || $4 > 2047) yyerror("pomeraj van dozvoljenog 12-bitnog opsega");
         free($2);
         $$ = o;
@@ -507,7 +511,7 @@ operand:
     LBRACKET GPR PLUS symbol RBRACKET {
         OperandInfo* o = new OperandInfo();
         o->symbol = $4; o->mod = 0b0010; o->regB = ass.gpr_index($2); o->regC = 0;
-        o->disp = 0; o->isImmediateReg = false;
+        o->disp = 0; o->isImmediateReg = false;o->relocKind = OperandInfo::DISP_ABS;
         free($2);
         $$ = o;
     }

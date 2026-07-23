@@ -27,8 +27,9 @@ struct forwardRefrence {
     string section;
     uint32_t size;
     enum Type {
-        ABSOLUTE,
-        PC_RELATIVE
+        ABSOLUTE, // 0
+        PC_RELATIVE, // 1
+        DISP_ABS // 2
     } type;
 };
 struct PoolEntry {
@@ -46,6 +47,7 @@ struct OperandInfo {
     bool isImmediateReg; /* true za %gpr  */
     int plainReg;
     bool isIndirect = false;
+    enum RelocKind { NONE, POOL_PCREL, DISP_ABS } relocKind = NONE;
   };
 
 struct FileHeader{
@@ -66,7 +68,7 @@ struct Relocation  //assembler ne koristi zapravo ovo jer je uvedeno tek kod lin
     string section;
     uint32_t address;
     uint32_t size;
-    uint8_t type;
+    uint8_t type; 
  };
 
 struct objectFile{
