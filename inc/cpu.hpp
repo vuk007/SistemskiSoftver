@@ -4,9 +4,9 @@
 #include <iostream>
 #include <iomanip>
 using namespace std;
-
-inline int pc = 15; 
-inline int sp = 14;
+//debug sa cerr ne cout jer je cout bufferovan
+inline const int pc = 15; 
+inline const int sp = 14;
 
 class CPU {
 private:
@@ -55,14 +55,14 @@ private:
         
     );
 
-    /* INSTRUKCIJE */
+
     void execute_int();
+    void check_interrupts();
 
 public:
 
-    CPU(Memory &mem);
+    CPU(Memory &mem):memory(mem){gpr[pc] = 0x40000000;};
     void reset();
     void run();
     void print_state();
-
 };

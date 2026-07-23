@@ -273,10 +273,9 @@ int Assembler::forwardRefTable_add_reference(string symbolName ,uint32_t address
 void Assembler::backpatching(const string& name){
     auto it = forwardRefTable.find(name);
     if (it == forwardRefTable.end()) return;
-    cout<<name<<"\n";
     Symbol* sym = symbolTable_find_symbol(name);
     if (!sym || !sym->defined) return;   // simbol jos ne postoji, ne bi trebalo da se pozove backpatching bez toga
-
+    
     for (auto& ref : it->second) {
         Section* sec = sectionTable_find_section(ref.section);
         if (!sec) continue;

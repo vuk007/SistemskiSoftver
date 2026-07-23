@@ -67,12 +67,11 @@ void CPU::write_reg(uint8_t index, uint32_t value){
 
 void CPU::run(){
     while(!halted){
-        uint32_t pc = gpr[15];
 
-        uint8_t b0 = memory.read_byte(pc);
-        uint8_t b1 = memory.read_byte(pc + 1);
-        uint8_t b2 = memory.read_byte(pc + 2);
-        uint8_t b3 = memory.read_byte(pc + 3);
+        uint8_t b0 = memory.read_byte(gpr[pc]);
+        uint8_t b1 = memory.read_byte(gpr[pc] + 1);
+        uint8_t b2 = memory.read_byte(gpr[pc] + 2);
+        uint8_t b3 = memory.read_byte(gpr[pc] + 3);
        
         next_instruction();
         
@@ -82,12 +81,15 @@ void CPU::run(){
         uint8_t regA = b1 >> 4;
         uint8_t regB = b1 & 0x0F;
         uint8_t regC = b2 >> 4;
-
+        cerr <<hex<<"pc="<<gpr[pc] <<" oc=" << (int)oc << " mod=" << (int)mod <<" A= " << (int)regA << " B="<<(int)regB <<" C="<< (int)regC <<"\n";
         int32_t disp = ((b2 & 0x0F) << 8) | b3; //D - u postavci projekta
         disp = sign_extend12(disp);
         
         execute_instruction(oc, mod, regA, regB, regC, disp);
         
+        // provera za prekid 
+        memory.poll_keyboard();
+        check_interrupts();
     }
 }
 
@@ -119,13 +121,7 @@ uint32_t CPU::pop(){
     gpr[sp] += 4;
     return value;
 }
-void CPU::execute_int(){
-    push(status);
-    push(gpr[15]);
-    cause = 4;
-    status &= ~0x4;
-    gpr[15] = handler;
-}
+
 /* OBRADITI SVE SLUCAJEVE KOJI SU U POSTAVCI */
 void CPU::execute_instruction(
         uint8_t oc,
@@ -135,7 +131,7 @@ void CPU::execute_instruction(
         uint8_t C,
         int32_t D  
     )
-    {
+    { 
   switch (oc){
     case 0x0:{
         if(A == 0 && B == 0 && C == 0 && D == 0)halted = true;
@@ -287,8 +283,26 @@ void CPU::execute_instruction(
           write_reg(B, read_reg(B) + D);
           break;
       }
+      break; 
     }
     default:
       trigger_interrupt(1);
     }
   }
+
+void CPU::check_interrupts(){
+    if (status & 0x4) return;              // provera dal su prekidi maskirani
+    if (memory.terminal_interrupt_pending() && !(status & 0x2)){  //tl  
+        memory.clear_terminal_interrupt();
+        trigger_interrupt(3);       // jer imam samo tastaturu       
+    }
+}
+
+void CPU::reset(){
+    for (int i = 0; i < 16; i++) gpr[i] = 0;
+    gpr[pc] = 0x40000000;   
+    status = 0;
+    handler = 0;
+    cause = 0;
+    halted = false;
+}
