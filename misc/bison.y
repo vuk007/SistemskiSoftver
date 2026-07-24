@@ -367,19 +367,17 @@ instruction:
     LD operand COMMA GPR {
         int dest = ass.gpr_index($4);
         if ($2->symbol) {
-            auto relocType = ($2->relocKind == OperandInfo::DISP_ABS)
-            ? forwardRefrence::DISP_ABS // [reg + simbol/literal]
-            : ($2->mod == 0b0001 
-                ? forwardRefrence::ABSOLUTE  //$simbol  ili $literal
-                : forwardRefrence::PC_RELATIVE); // simbol ili literal
+            auto relocType = ($2->mod == 0b0001) ? forwardRefrence::ABSOLUTE : forwardRefrence::PC_RELATIVE;
             ass.forwardRefTable_add_reference($2->symbol, ass.locationCounter, ass.currentSection, 4, relocType);
             free($2->symbol);
         }
         if ($2->isImmediateReg) {
-            /* ld %gprS, %gprD  =>  gpr[A]<=gpr[B]+0 */
             ass.write_instruction(0b1001, 0b0001, dest, $2->plainReg, 0, 0);
         } else {
             ass.write_instruction(0b1001, $2->mod, dest, $2->regB, $2->regC, $2->disp);
+            if ($2->relocKind == OperandInfo::POOL_PCREL) {
+                ass.write_instruction(0b1001, 0b0010, dest, dest, 0, 0);
+            }
         }
         free($4);
         delete $2;
@@ -388,13 +386,22 @@ instruction:
     ST GPR COMMA operand {
         int src = ass.gpr_index($2);
         if ($4->symbol) {
-            auto relocType = ($4->mod == 0b0001)
-            ? forwardRefrence::ABSOLUTE
-            : forwardRefrence::PC_RELATIVE;
+            auto relocType = ($4->mod == 0b0001) ? forwardRefrence::ABSOLUTE : forwardRefrence::PC_RELATIVE;
             ass.forwardRefTable_add_reference($4->symbol, ass.locationCounter, ass.currentSection, 4, relocType);
             free($4->symbol);
         }
-        int stMod = ($4->mod == 0b0010) ? 0b0000 : $4->mod;
+
+        int stMod;
+        if ($4->relocKind == OperandInfo::POOL_PCREL) {
+
+            stMod = 0b0010;
+        } else if ($4->mod == 0b0010) {
+            /* [%reg], [%reg+lit], [%reg+simbol], <literal>  */
+            stMod = 0b0000;
+        } else {
+            stMod = $4->mod;
+        }
+
         ass.write_instruction(0b1000, stMod, $4->regB, $4->regC, src, $4->disp);
         free($2);
         delete $4;
@@ -466,17 +473,38 @@ operand:
     }
     |
     number {
-        /* citanje iz memorije na apsolutnoj adresi -> PC-relativno */
         OperandInfo* o = new OperandInfo();
-        o->symbol = nullptr; o->mod = 0b0010; o->regB = 0; o->regC = 0;
-        o->disp = (int32_t)$1; o->isImmediateReg = false;
+        o->isImmediateReg = false;
+        o->regC = 0;
+
+        if ($1 >= -2048 && $1 <= 2047) {
+            /* staje direktno kao pomeraj: adresa = gpr[0](=0) + 0 + D */
+            o->symbol = nullptr;
+            o->mod = 0b0010;
+            o->regB = 0;
+            o->disp = (int32_t)$1;
+            o->relocKind = OperandInfo::NONE;
+        } else {
+            /* ne staje u 12 bita - literal ide u pool, citamo adresu PC-relativno */
+            string key = ass.literalPool_findOrAdd_PoolSlot(false, (int32_t)$1, "");
+            o->symbol = strdup(key.c_str());
+            o->mod = 0b0010;
+            o->regB = 15;
+            o->regC = 0;
+            o->disp = 0;
+            o->relocKind = OperandInfo::POOL_PCREL;
+        }
         $$ = o;
     }
     |
     symbol {
         OperandInfo* o = new OperandInfo();
-        o->symbol = $1; o->mod = 0b0010; o->regB = 15; o->regC = 0;
-        o->disp = 0; o->isImmediateReg = false; 
+        string key = ass.literalPool_findOrAdd_PoolSlot(true, 0, $1);
+        o->symbol = strdup(key.c_str());   // pool key, NE sirovo ime simbola
+        o->mod = 0b0010; o->regB = 15; o->regC = 0; o->disp = 0;
+        o->isImmediateReg = false;
+        o->relocKind = OperandInfo::POOL_PCREL;   // oznaci da je adresa u pool-u, ne direktna vrednost
+        free($1);
         $$ = o;
     }
     |
