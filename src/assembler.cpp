@@ -280,8 +280,7 @@ void Assembler::backpatching(const string& name){
 
     for (auto refIt = refs.begin(); refIt != refs.end(); ) {
         forwardRefrence &ref = *refIt;
-
-        if (ref.type == forwardRefrence::PC_RELATIVE) {
+        if (ref.type == forwardRefrence::PC_RELATIVE && sym->section == ref.section) {
             Section* sec = sectionTable_find_section(ref.section);
             if (sec) {
                 int32_t value = sym->base - (int32_t)(ref.address + ref.size);
@@ -292,11 +291,10 @@ void Assembler::backpatching(const string& name){
                 sec->data[ref.address + 2] = (sec->data[ref.address + 2] & 0xF0) | ((value >> 8) & 0xF);
                 sec->data[ref.address + 3] = value & 0xFF;
             }
-            refIt = refs.erase(refIt);   // resen, izbaci iz tabele
+            refIt = refs.erase(refIt);
         }
         else {
-            //absolute realloc
-            ++refIt;
+            ++refIt;   // ABSOLUTE, ili PC_RELATIVE 
         }
     }
 

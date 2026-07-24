@@ -7,6 +7,9 @@
 #include <termios.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <iomanip>
+#include <algorithm>
+#include <vector>
 using namespace std;
 
 class Memory{
@@ -30,4 +33,5 @@ public:
     bool terminal_interrupt_pending();
     void clear_terminal_interrupt();
     void poll_keyboard();
+    void print_memory();
 };

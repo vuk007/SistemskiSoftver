@@ -85,7 +85,6 @@ HEX 0[xX][0123456789abcdefABCDEF]+
 \n { 
     line++; 
     character_in_line=0;
-    cout << "\n";
     return NEWLINE;
 }
 

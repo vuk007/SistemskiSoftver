@@ -19,6 +19,10 @@ void Memory::write_byte(uint32_t address, uint8_t value){
 }
 
 void Memory::write_word(uint32_t address, uint32_t value){
+    if (address == term_out){
+        put_term(value);   
+        return;
+    }
   write_byte(address, value & 0xFF);
   write_byte(address + 1, (value >> 8) & 0xFF);
   write_byte(address + 2, (value >> 16) & 0xFF);
@@ -52,4 +56,34 @@ void Memory::poll_keyboard(){
             termInterruptPending = true;
         }
     }
+}
+
+void Memory::print_memory(){
+    cout << "================== MEMORY (nenulti bajtovi) ==================\n";
+
+    if (memory.empty()){
+        cout << "(prazno)\n";
+        return;
+    }
+    vector<uint32_t> addrs;
+    addrs.reserve(memory.size());
+    for (auto &kv : memory) addrs.push_back(kv.first);
+    sort(addrs.begin(), addrs.end());
+
+    bool first = true;
+    uint32_t lastAddr = 0;
+
+    for (uint32_t addr : addrs){
+        bool newLine = first || (addr % 8 == 0) || (addr != lastAddr + 1);
+
+        if (newLine){
+            if (!first) cout << "\n";
+            cout << hex << uppercase << setw(8) << setfill('0') << addr << ": " << dec << nouppercase;
+            first = false;
+        }
+
+        cout << hex << uppercase << setw(2) << setfill('0') << (int)memory[addr] << " " << dec << nouppercase;
+        lastAddr = addr;
+    }
+    cout << "\n";
 }

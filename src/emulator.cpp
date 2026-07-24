@@ -83,7 +83,9 @@ int main(int argc, char** argv){
     atexit(disableRawMode);   
 
     cpu.run();
+    cout<<"\n";
     cpu.print_state();
-
+    cout<<"\n";
+    memory.print_memory();
     return 0;
 }

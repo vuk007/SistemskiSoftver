@@ -388,15 +388,14 @@ instruction:
     ST GPR COMMA operand {
         int src = ass.gpr_index($2);
         if ($4->symbol) {
-            auto relocType = ($4->relocKind == OperandInfo::DISP_ABS)
-                ? forwardRefrence::DISP_ABS
-                :($4->mod == 0b0001
-                    ? forwardRefrence::ABSOLUTE
-                    : forwardRefrence::PC_RELATIVE);
+            auto relocType = ($4->mod == 0b0001)
+            ? forwardRefrence::ABSOLUTE
+            : forwardRefrence::PC_RELATIVE;
             ass.forwardRefTable_add_reference($4->symbol, ass.locationCounter, ass.currentSection, 4, relocType);
             free($4->symbol);
         }
-        ass.write_instruction(0b1000, $4->mod, $4->regB, $4->regC, src, $4->disp);
+        int stMod = ($4->mod == 0b0010) ? 0b0000 : $4->mod;
+        ass.write_instruction(0b1000, stMod, $4->regB, $4->regC, src, $4->disp);
         free($2);
         delete $4;
     }
