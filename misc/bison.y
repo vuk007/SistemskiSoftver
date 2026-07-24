@@ -135,9 +135,6 @@ directive:
                                   ass.sectionTable_increase_size(ass.currentSection, ass.locationCounter);
                                 }
                                 ass.literalPool_flush();
-                                ass.symbolTable_print();
-                                ass.sectionTable_print();
-                                ass.forwardRefTable_print();
                               }
     ;
 

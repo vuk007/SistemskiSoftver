@@ -274,43 +274,34 @@ void Assembler::backpatching(const string& name){
     auto it = forwardRefTable.find(name);
     if (it == forwardRefTable.end()) return;
     Symbol* sym = symbolTable_find_symbol(name);
-    if (!sym || !sym->defined) return;   // simbol jos ne postoji, ne bi trebalo da se pozove backpatching bez toga
-    
-    for (auto& ref : it->second) {
-        Section* sec = sectionTable_find_section(ref.section);
-        if (!sec) continue;
+    if (!sym || !sym->defined) return;
 
-        if (ref.type == forwardRefrence::ABSOLUTE) {
-    
-            uint32_t value = (uint32_t)sym->base;
-            sec->data[ref.address + 0] = value & 0xFF;
-            sec->data[ref.address + 1] = (value >> 8) & 0xFF;
-            sec->data[ref.address + 2] = (value >> 16) & 0xFF;
-            sec->data[ref.address + 3] = (value >> 24) & 0xFF;
-        } 
-        else if (ref.type == forwardRefrence::DISP_ABS) {
-            int32_t value = sym->base;   // BEZ oduzimanja adrese!
-            if (value < -2048 || value > 2047) {
-                cerr << "Greska: vrednost simbola '" << name
-                    << "' ne staje u 12 bita (" << value << ")\n";
+    auto &refs = it->second;
+
+    for (auto refIt = refs.begin(); refIt != refs.end(); ) {
+        forwardRefrence &ref = *refIt;
+
+        if (ref.type == forwardRefrence::PC_RELATIVE) {
+            Section* sec = sectionTable_find_section(ref.section);
+            if (sec) {
+                int32_t value = sym->base - (int32_t)(ref.address + ref.size);
+                if (value < -2048 || value > 2047) {
+                    cerr << "Greska: PC-relativni pomeraj do simbola '" << name
+                         << "' ne staje u 12 bita (" << value << ")\n";
+                }
+                sec->data[ref.address + 2] = (sec->data[ref.address + 2] & 0xF0) | ((value >> 8) & 0xF);
+                sec->data[ref.address + 3] = value & 0xFF;
             }
-            sec->data[ref.address + 2] = (sec->data[ref.address + 2] & 0xF0) | ((value >> 8) & 0xF);
-            sec->data[ref.address + 3] = value & 0xFF;
+            refIt = refs.erase(refIt);   // resen, izbaci iz tabele
         }
         else {
-
-            int32_t value = sym->base - (int32_t)(ref.address + ref.size);
-            if (value < -2048 || value > 2047) {
-                cerr << "Greska: PC-relativni pomeraj do simbola '" << name
-                     << "' ne staje u 12 bita (" << value << ")\n";
-            }
-            sec->data[ref.address + 2] = (sec->data[ref.address + 2] & 0xF0) | ((value >> 8) & 0xF);
-            sec->data[ref.address + 3] = value & 0xFF;
-            forwardRefTable.erase(it);
+            //absolute realloc
+            ++refIt;
         }
     }
-    
 
+    if (refs.empty())
+        forwardRefTable.erase(it);
 }
 
 

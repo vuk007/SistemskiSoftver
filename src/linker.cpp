@@ -151,19 +151,27 @@ uint32_t Linker::find_place(string sec , uint32_t id){
 bool Linker::create_sym_table(){
     uint32_t id = 0;
     bool ok = true;
+    resolvedLocalSymbols.resize(objFiles.size());
 
     for (auto &file : objFiles){
         for (auto &sym : file.symbols){
 
+            Symbol resolved = sym;
+            if (sym.defined && outputSections.count(sym.section)){
+                resolved.base = sym.base + outputSections[sym.section].base
+                                          + find_place(sym.section, id);
+            }
+            resolvedLocalSymbols[id].push_back(resolved);
+
+            if (!sym.global && !sym.isextern) continue; 
+
             Symbol* existing = find_symbol(sym.name);
-            
+
             if (existing == nullptr){
                 outputSymTable.push_back(sym);
                 existing = find_symbol(sym.name);
-
                 if (sym.defined){
-                    existing->base += outputSections[sym.section].base
-                                     + find_place(sym.section, id);
+                    existing->base = resolved.base;
                     existing->defined = true;
                 }
             }
@@ -175,11 +183,8 @@ bool Linker::create_sym_table(){
                     continue;
                 }
                 if (sym.defined && !existing->defined){
-                    // ranije je bio samo extern najava, sad ga popunjavamo
                     existing->section = sym.section;
-                    existing->base = sym.base
-                                    + outputSections[sym.section].base
-                                    + find_place(sym.section, id);
+                    existing->base = resolved.base;
                     existing->defined = true;
                 }
             }
@@ -187,6 +192,13 @@ bool Linker::create_sym_table(){
         id++;
     }
     return ok;
+}
+
+Symbol* Linker::find_local_symbol(uint32_t fileId, const string& name){
+    if (fileId >= resolvedLocalSymbols.size()) return nullptr;
+    for (auto &s : resolvedLocalSymbols[fileId])
+        if (s.name == name) return &s;
+    return nullptr;
 }
 
 
@@ -197,7 +209,10 @@ bool Linker::realloc_symbols(){
     for (auto &file : objFiles){
         for (auto &rel : file.relocations){
 
-            Symbol* sym = find_symbol(rel.symbol);
+            Symbol* sym = find_local_symbol(fileId, rel.symbol);   //prvo lokalno se trazi 
+            if (sym == nullptr || !sym->defined)
+                sym = find_symbol(rel.symbol); 
+
             if (sym == nullptr || !sym->defined){
                 cout << "Greska: nerazresen simbol '" << rel.symbol
                      << "' (koriscen u sekciji " << rel.section << ")\n";
@@ -358,27 +373,16 @@ bool Linker::link(){
     if (relocatableMode) place.clear();
     map_sections();
  
-    cout << "\n--- posle map_sections ---\n";
-    print_sections();
-    print_place_table();
-    print_relocations();
- 
     if (!create_sym_table()){
         cout << "Povezivanje neuspesno zbog greske u tabeli simbola.\n";
         return false;
     }
- 
-    cout << "\n--- posle create_sym_table ---\n";
-    print_symbol_table();
  
     if (!relocatableMode){
         if (!realloc_symbols()){
             cout << "Povezivanje neuspesno zbog nerazresenih referenci.\n";
             return false;
         }
-        cout << "\n--- posle realloc_symbols ---\n";
-        print_sections();
- 
         if (!check_section_overlap()){
             cout << "Povezivanje neuspesno zbog preklapanja sekcija.\n";
             return false;
@@ -455,7 +459,9 @@ bool Linker::write_relocatable_output(){
  
     for (auto &file : objFiles){
         for (auto &rel : file.relocations){
-            Symbol* sym = find_symbol(rel.symbol);
+            Symbol* sym = find_local_symbol(fileId, rel.symbol);   // prvo lokalno
+            if (sym == nullptr || !sym->defined)
+                sym = find_symbol(rel.symbol);                     
             uint32_t placeOffset = find_place(rel.section, fileId);
             uint32_t newAddr = placeOffset + rel.address;
  

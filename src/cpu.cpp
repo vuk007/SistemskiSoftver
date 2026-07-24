@@ -81,7 +81,7 @@ void CPU::run(){
         uint8_t regA = b1 >> 4;
         uint8_t regB = b1 & 0x0F;
         uint8_t regC = b2 >> 4;
-        cerr <<hex<<"pc="<<gpr[pc] <<" oc=" << (int)oc << " mod=" << (int)mod <<" A= " << (int)regA << " B="<<(int)regB <<" C="<< (int)regC <<"\n";
+        //cerr <<hex<<"pc="<<gpr[pc] <<" oc=" << (int)oc << " mod=" << (int)mod <<" A= " << (int)regA << " B="<<(int)regB <<" C="<< (int)regC <<"\n";
         int32_t disp = ((b2 & 0x0F) << 8) | b3; //D - u postavci projekta
         disp = sign_extend12(disp);
         

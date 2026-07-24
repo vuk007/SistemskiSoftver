@@ -12,6 +12,7 @@ using namespace std;
 
 class Linker {
   
+  vector<vector<Symbol>> resolvedLocalSymbols;
   vector<objectFile> objFiles;
   vector<Symbol> outputSymTable;
   vector<string> input_files;
@@ -35,6 +36,7 @@ class Linker {
     string read_string(ifstream& in);
     uint32_t find_place(string sec , uint32_t id);
     Symbol* find_symbol(string name);
+    Symbol* find_local_symbol(uint32_t fileId, const string& name);
     void write_string(ofstream& out, const string& s);    
     bool write_relocatable_output();
     bool write_hex_output();
